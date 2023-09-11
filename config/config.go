@@ -16,6 +16,7 @@ import (
 	"github.com/Dreamacro/clash/adapter/outbound"
 	"github.com/Dreamacro/clash/adapter/outboundgroup"
 	"github.com/Dreamacro/clash/adapter/provider"
+	N "github.com/Dreamacro/clash/common/net"
 	"github.com/Dreamacro/clash/common/utils"
 	"github.com/Dreamacro/clash/component/auth"
 	"github.com/Dreamacro/clash/component/dialer"
@@ -59,6 +60,8 @@ type General struct {
 	Sniffing                bool              `json:"sniffing"`
 	EBpf                    EBpf              `json:"-"`
 	GlobalClientFingerprint string            `json:"global-client-fingerprint"`
+	GlobalUA                string            `json:"global-ua"`
+	KeepAliveInterval       int               `json:"keep-alive-interval"`
 }
 
 // Inbound config
@@ -85,6 +88,15 @@ type Controller struct {
 	ExternalControllerTLS string `json:"-"`
 	ExternalUI            string `json:"-"`
 	Secret                string `json:"-"`
+}
+
+// NTP config
+type NTP struct {
+	Enable        bool   `yaml:"enable"`
+	WriteToSystem bool   `yaml:"write-to-system"`
+	Server        string `yaml:"server"`
+	Port          int    `yaml:"port"`
+	Interval      int    `yaml:"interval"`
 }
 
 // DNS config
@@ -144,13 +156,15 @@ type Sniffer struct {
 
 // Experimental config
 type Experimental struct {
-	Fingerprints []string `yaml:"fingerprints"`
+	Fingerprints     []string `yaml:"fingerprints"`
+	QUICGoDisableGSO bool     `yaml:"quic-go-disable-gso"`
 }
 
 // Config is clash config manager
 type Config struct {
 	General       *General
 	IPTables      *IPTables
+	NTP           *NTP
 	DNS           *DNS
 	Experimental  *Experimental
 	Hosts         *trie.DomainTrie[resolver.HostValue]
@@ -165,6 +179,14 @@ type Config struct {
 	Tunnels       []LC.Tunnel
 	Sniffer       *Sniffer
 	TLS           *TLS
+}
+
+type RawNTP struct {
+	Enable        bool   `yaml:"enable"`
+	WriteToSystem bool   `yaml:"write-to-system"`
+	Server        string `yaml:"server"`
+	ServerPort    int    `yaml:"server-port"`
+	Interval      int    `yaml:"interval"`
 }
 
 type RawDNS struct {
@@ -264,11 +286,14 @@ type RawConfig struct {
 	TCPConcurrent           bool              `yaml:"tcp-concurrent" json:"tcp-concurrent"`
 	FindProcessMode         P.FindProcessMode `yaml:"find-process-mode" json:"find-process-mode"`
 	GlobalClientFingerprint string            `yaml:"global-client-fingerprint"`
+	GlobalUA                string            `yaml:"global-ua"`
+	KeepAliveInterval       int               `yaml:"keep-alive-interval"`
 
 	Sniffer       RawSniffer                `yaml:"sniffer"`
 	ProxyProvider map[string]map[string]any `yaml:"proxy-providers"`
 	RuleProvider  map[string]map[string]any `yaml:"rule-providers"`
 	Hosts         map[string]any            `yaml:"hosts"`
+	NTP           RawNTP                    `yaml:"ntp"`
 	DNS           RawDNS                    `yaml:"dns"`
 	Tun           RawTun                    `yaml:"tun"`
 	TuicServer    RawTuicServer             `yaml:"tuic-server"`
@@ -348,6 +373,7 @@ func UnmarshalRawConfig(buf []byte) (*RawConfig, error) {
 		ProxyGroup:      []map[string]any{},
 		TCPConcurrent:   false,
 		FindProcessMode: P.FindProcessStrict,
+		GlobalUA:        "clash.meta",
 		Tun: RawTun{
 			Enable:              false,
 			Device:              "",
@@ -378,6 +404,13 @@ func UnmarshalRawConfig(buf []byte) (*RawConfig, error) {
 			Enable:           false,
 			InboundInterface: "lo",
 			Bypass:           []string{},
+		},
+		NTP: RawNTP{
+			Enable:        false,
+			WriteToSystem: false,
+			Server:        "time.apple.com",
+			ServerPort:    123,
+			Interval:      30,
 		},
 		DNS: RawDNS{
 			Enable:       false,
@@ -493,6 +526,9 @@ func ParseRawConfig(rawCfg *RawConfig) (*Config, error) {
 	}
 	config.Hosts = hosts
 
+	ntpCfg := paresNTP(rawCfg)
+	config.NTP = ntpCfg
+
 	dnsCfg, err := parseDNS(rawCfg, hosts, rules, ruleProviders)
 	if err != nil {
 		return nil, err
@@ -539,6 +575,12 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 	C.GeoSiteUrl = cfg.GeoXUrl.GeoSite
 	C.MmdbUrl = cfg.GeoXUrl.Mmdb
 	C.GeodataMode = cfg.GeodataMode
+	C.UA = cfg.GlobalUA
+	if cfg.KeepAliveInterval != 0 {
+		N.KeepAliveInterval = time.Duration(cfg.KeepAliveInterval) * time.Second
+	}
+
+	log.Debugln("TCP Keep Alive Interval set %+v", N.KeepAliveInterval)
 	// checkout externalUI exist
 	if externalUI != "" {
 		externalUI = C.Path.Resolve(externalUI)
@@ -580,6 +622,8 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 		FindProcessMode:         cfg.FindProcessMode,
 		EBpf:                    cfg.EBpf,
 		GlobalClientFingerprint: cfg.GlobalClientFingerprint,
+		GlobalUA:                cfg.GlobalUA,
+		KeepAliveInterval:       cfg.KeepAliveInterval,
 	}, nil
 }
 
@@ -1130,6 +1174,18 @@ func parseFallbackGeoSite(countries []string, rules []C.Rule) ([]*router.DomainM
 		}
 	}
 	return sites, nil
+}
+
+func paresNTP(rawCfg *RawConfig) *NTP {
+	cfg := rawCfg.NTP
+	ntpCfg := &NTP{
+		Enable:        cfg.Enable,
+		Server:        cfg.Server,
+		Port:          cfg.ServerPort,
+		Interval:      cfg.Interval,
+		WriteToSystem: cfg.WriteToSystem,
+	}
+	return ntpCfg
 }
 
 func parseDNS(rawCfg *RawConfig, hosts *trie.DomainTrie[resolver.HostValue], rules []C.Rule, ruleProviders map[string]providerTypes.RuleProvider) (*DNS, error) {
