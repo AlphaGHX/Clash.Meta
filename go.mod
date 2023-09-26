@@ -19,20 +19,21 @@ require (
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/mdlayher/netlink v1.7.2
 	github.com/metacubex/gopacket v1.1.20-0.20230608035415-7e2f98a3e759
-	github.com/metacubex/quic-go v0.38.1-0.20230909013832-033f6a2115cf
-	github.com/metacubex/sing-shadowsocks v0.2.4
-	github.com/metacubex/sing-shadowsocks2 v0.1.3
-	github.com/metacubex/sing-tun v0.1.11
-	github.com/metacubex/sing-vmess v0.1.8-0.20230801054944-603005461ff8
+	github.com/metacubex/quic-go v0.39.1-0.20230926003849-db956da2a731
+	github.com/metacubex/sing-quic v0.0.0-20230926004739-7c7c534c2255
+	github.com/metacubex/sing-shadowsocks v0.2.5
+	github.com/metacubex/sing-shadowsocks2 v0.1.4
+	github.com/metacubex/sing-tun v0.1.13-0.20230926010214-4e9d1add2aee
+	github.com/metacubex/sing-vmess v0.1.9-0.20230921005247-a0488d7dac74
 	github.com/metacubex/sing-wireguard v0.0.0-20230611155257-1498ae315a28
-	github.com/miekg/dns v1.1.55
+	github.com/miekg/dns v1.1.56
 	github.com/mroth/weightedrand/v2 v2.1.0
 	github.com/openacid/low v0.1.21
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/puzpuzpuz/xsync/v2 v2.5.0
 	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97
-	github.com/sagernet/sing v0.2.10-0.20230807080248-4db0062caa0a
-	github.com/sagernet/sing-mux v0.1.3-0.20230811111955-dc1639b5204c
+	github.com/sagernet/sing v0.2.11
+	github.com/sagernet/sing-mux v0.1.3
 	github.com/sagernet/sing-shadowtls v0.1.4
 	github.com/sagernet/tfo-go v0.0.0-20230816093905-5a5c285d44a6
 	github.com/sagernet/utls v0.0.0-20230309024959-6732c2ab36f2
@@ -66,9 +67,8 @@ require (
 	github.com/ericlagergren/subtle v0.0.0-20220507045147-890d697da010 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
-	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
@@ -84,7 +84,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.3.3 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.4 // indirect
 	github.com/sagernet/go-tun2socks v1.16.12-0.20220818015926-16cb67876a61 // indirect
 	github.com/sagernet/smux v0.0.0-20230312102458-337ec2a5af37 // indirect
 	github.com/scjalliance/comshim v0.0.0-20230315213746-5e51f40bd3b9 // indirect
@@ -98,10 +98,11 @@ require (
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec // indirect
+	go.uber.org/mock v0.3.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
 )
 
-replace github.com/sagernet/sing => github.com/metacubex/sing v0.0.0-20230817143035-28d23f152579
+replace github.com/sagernet/sing => github.com/metacubex/sing v0.0.0-20230926010351-b23b466642d1

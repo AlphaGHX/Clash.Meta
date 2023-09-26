@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -61,7 +62,6 @@ type General struct {
 	EBpf                    EBpf              `json:"-"`
 	GlobalClientFingerprint string            `json:"global-client-fingerprint"`
 	GlobalUA                string            `json:"global-ua"`
-	KeepAliveInterval       int               `json:"keep-alive-interval"`
 }
 
 // Inbound config
@@ -93,10 +93,11 @@ type Controller struct {
 // NTP config
 type NTP struct {
 	Enable        bool   `yaml:"enable"`
-	WriteToSystem bool   `yaml:"write-to-system"`
 	Server        string `yaml:"server"`
 	Port          int    `yaml:"port"`
 	Interval      int    `yaml:"interval"`
+	DialerProxy   string `yaml:"dialer-proxy"`
+	WriteToSystem bool   `yaml:"write-to-system"`
 }
 
 // DNS config
@@ -183,10 +184,11 @@ type Config struct {
 
 type RawNTP struct {
 	Enable        bool   `yaml:"enable"`
-	WriteToSystem bool   `yaml:"write-to-system"`
 	Server        string `yaml:"server"`
 	ServerPort    int    `yaml:"server-port"`
 	Interval      int    `yaml:"interval"`
+	DialerProxy   string `yaml:"dialer-proxy"`
+	WriteToSystem bool   `yaml:"write-to-system"`
 }
 
 type RawDNS struct {
@@ -277,6 +279,8 @@ type RawConfig struct {
 	ExternalController      string            `yaml:"external-controller"`
 	ExternalControllerTLS   string            `yaml:"external-controller-tls"`
 	ExternalUI              string            `yaml:"external-ui"`
+	ExternalUIURL           string            `yaml:"external-ui-url" json:"external-ui-url"`
+	ExternalUIName          string            `yaml:"external-ui-name" json:"external-ui-name"`
 	Secret                  string            `yaml:"secret"`
 	Interface               string            `yaml:"interface-name"`
 	RoutingMark             int               `yaml:"routing-mark"`
@@ -459,6 +463,7 @@ func UnmarshalRawConfig(buf []byte) (*RawConfig, error) {
 			GeoIp:   "https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat",
 			GeoSite: "https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat",
 		},
+		ExternalUIURL: "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
 	}
 
 	if err := yaml.Unmarshal(buf, rawCfg); err != nil {
@@ -569,7 +574,6 @@ func ParseRawConfig(rawCfg *RawConfig) (*Config, error) {
 }
 
 func parseGeneral(cfg *RawConfig) (*General, error) {
-	externalUI := cfg.ExternalUI
 	geodata.SetLoader(cfg.GeodataLoader)
 	C.GeoIpUrl = cfg.GeoXUrl.GeoIp
 	C.GeoSiteUrl = cfg.GeoXUrl.GeoSite
@@ -580,14 +584,30 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 		N.KeepAliveInterval = time.Duration(cfg.KeepAliveInterval) * time.Second
 	}
 
-	log.Debugln("TCP Keep Alive Interval set %+v", N.KeepAliveInterval)
+	ExternalUIPath = cfg.ExternalUI
 	// checkout externalUI exist
-	if externalUI != "" {
-		externalUI = C.Path.Resolve(externalUI)
-		if _, err := os.Stat(externalUI); os.IsNotExist(err) {
-			return nil, fmt.Errorf("external-ui: %s not exist", externalUI)
+	if ExternalUIPath != "" {
+		ExternalUIPath = C.Path.Resolve(ExternalUIPath)
+		if _, err := os.Stat(ExternalUIPath); os.IsNotExist(err) {
+			defaultUIpath := path.Join(C.Path.HomeDir(), "ui")
+			log.Warnln("external-ui: %s does not exist, creating folder in %s", ExternalUIPath, defaultUIpath)
+			if err := os.MkdirAll(defaultUIpath, os.ModePerm); err != nil {
+				return nil, err
+			}
+			ExternalUIPath = defaultUIpath
+			cfg.ExternalUI = defaultUIpath
 		}
 	}
+	// checkout UIpath/name exist
+	if cfg.ExternalUIName != "" {
+		ExternalUIName = cfg.ExternalUIName
+	} else {
+		ExternalUIFolder = ExternalUIPath
+	}
+	if cfg.ExternalUIURL != "" {
+		ExternalUIURL = cfg.ExternalUIURL
+	}
+
 	cfg.Tun.RedirectToTun = cfg.EBpf.RedirectToTun
 	return &General{
 		Inbound: Inbound{
@@ -623,7 +643,6 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 		EBpf:                    cfg.EBpf,
 		GlobalClientFingerprint: cfg.GlobalClientFingerprint,
 		GlobalUA:                cfg.GlobalUA,
-		KeepAliveInterval:       cfg.KeepAliveInterval,
 	}, nil
 }
 
@@ -1183,6 +1202,7 @@ func paresNTP(rawCfg *RawConfig) *NTP {
 		Server:        cfg.Server,
 		Port:          cfg.ServerPort,
 		Interval:      cfg.Interval,
+		DialerProxy:   cfg.DialerProxy,
 		WriteToSystem: cfg.WriteToSystem,
 	}
 	return ntpCfg
